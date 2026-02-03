@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Unified DynamoDB table for security events (GuardDuty + SecurityHub)'
+
+Parameters:
+  TableName:
+    Type: String
+    Default: security-events
+    Description: Name of the DynamoDB table
+
+Resources:
+  SecurityEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      AttributeDefinitions:
+        - AttributeName: record_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: record_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamEnabled: false
+
+Outputs:
+  TableName:
+    Description: DynamoDB Table Name
+    Value: !Ref SecurityEventsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-TableName"
