@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Lark Integration for AWS Security Hub Alerts'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+  
+  LarkAppIdParam:
+    Type: String
+    Default: lark-app-id
+    Description: SSM Parameter name for Lark App ID
+  
+  LarkAppSecretParam:
+    Type: String
+    Default: lark-app-secret
+    Description: SSM Parameter name for Lark App Secret
+  
+  LarkChatIdParam:
+    Type: String
+    Default: lark-chat-id
+    Description: SSM Parameter name for Lark Chat ID
+
+Globals:
+  Function:
+    Timeout: 60
+    Runtime: python3.9
+    MemorySize: 256
+
+Resources:
+  # DynamoDB Table
+  SecurityEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'security-events-${Environment}'
+      AttributeDefinitions:
+        - AttributeName: record_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: record_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  # Lambda Layer for shared code
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'lark-integration-shared-${Environment}'
+      Description: Shared code for Lark integration
+      ContentUri: src/shared/
+      CompatibleRuntimes:
+        - python3.9
+
+  # Security Groups Handler Lambda
+  SecurityGroupsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'lark-security-hub-alerts-${Environment}'
+      Description: Process Security Hub findings and send Lark notifications
+      CodeUri: src/handlers/security_groups/
+      Handler: lambda_function.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref SecurityEventsTable
+          SSM_LARK_APP_ID: !Ref LarkAppIdParam
+          SSM_LARK_APP_SECRET: !Ref LarkAppSecretParam
+          SSM_LARK_CHAT_ID: !Ref LarkChatIdParam
+          IGNORED_ACCOUNT_IDS: ''
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SecurityEventsTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref LarkAppIdParam
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref LarkAppSecretParam
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref LarkChatIdParam
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cloudtrail:LookupEvents
+              Resource: '*'
+      Events:
+        SecurityHubEvent:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - aws.securityhub
+              detail-type:
+                - Security Hub Findings - Imported
+              detail:
+                findings:
+                  Compliance:
+                    Status:
+                      - FAILED
+
+Outputs:
+  FunctionArn:
+    Description: Lambda Function ARN
+    Value: !GetAtt SecurityGroupsFunction.Arn
+  
+  TableName:
+    Description: DynamoDB Table Name
+    Value: !Ref SecurityEventsTable

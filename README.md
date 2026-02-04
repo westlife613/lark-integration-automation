@@ -43,9 +43,9 @@ aws cloudformation deploy \
 ### 2. 配置 SSM 参数
 
 ```bash
-aws ssm put-parameter --name "SYD-Audit-Security-Automation-PROD-Parameter-Lark-APP-ID" --value "your-app-id" --type SecureString
-aws ssm put-parameter --name "SYD-Audit-Security-Automation-PROD-Parameter-Lark-APP-Secret" --value "your-secret" --type SecureString
-aws ssm put-parameter --name "SYD-Audit-Security-Automation-PROD-Parameter-Lark-Chat-ID" --value "your-chat-id" --type SecureString
+aws ssm put-parameter --name "lark-app-id" --value "your-app-id" --type SecureString --region ap-southeast-1
+aws ssm put-parameter --name "lark-app-secret" --value "your-secret" --type SecureString --region ap-southeast-1
+aws ssm put-parameter --name "lark-chat-id" --value "your-chat-id" --type SecureString --region ap-southeast-1
 ```
 
 ### 3. 部署 Lambda
