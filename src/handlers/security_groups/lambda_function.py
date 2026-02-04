@@ -20,8 +20,10 @@ def get_secure_param(ssm, name):
 
 
 def post_message(app_id, app_secret, chat_id, finding_time, finding, region):
-    if finding.get("AwsAccountId") == "871573024438":
-        print("Ignore VIG account")
+    # Skip ignored accounts (configured via environment variable)
+    ignored_accounts = os.environ.get('IGNORED_ACCOUNT_IDS', '').split(',')
+    if finding.get("AwsAccountId") in ignored_accounts:
+        print(f"Ignoring account: {finding.get('AwsAccountId')}")
         return
     else:
         print("Posting message")
@@ -91,9 +93,10 @@ def post_message(app_id, app_secret, chat_id, finding_time, finding, region):
 
 def process_event(event):
     ssm = boto3.client('ssm')
-    app_id = get_secure_param(ssm, "SYD-Audit-Security-Automation-PROD-Parameter-Lark-APP-ID")
-    app_secret = get_secure_param(ssm, "SYD-Audit-Security-Automation-PROD-Parameter-Lark-APP-Secret")
-    chat_id = get_secure_param(ssm, "SYD-Audit-Security-Automation-PROD-Parameter-Lark-Chat-ID")
+    # SSM parameter names configured via environment variables
+    app_id = get_secure_param(ssm, os.environ.get('SSM_LARK_APP_ID', 'lark-app-id'))
+    app_secret = get_secure_param(ssm, os.environ.get('SSM_LARK_APP_SECRET', 'lark-app-secret'))
+    chat_id = get_secure_param(ssm, os.environ.get('SSM_LARK_CHAT_ID', 'lark-chat-id'))
     message = event
     finding_time = message.get("time")
     region = message.get("region")
